@@ -1,6 +1,5 @@
 const { src, dest, series, parallel, watch, tree } = require('gulp');
 const less = require('gulp-less');
-const px2rem = require('gulp-px2rem-plugin');
 const del = require('del');
 const browserSync = require('browser-sync').create();
 const { createProxyMiddleware  } = require('http-proxy-middleware');
@@ -21,13 +20,6 @@ function dev () {
   function compileLess (cb) {
     src(paths.src.less)
       .pipe(less({dumpLineNumbers: "comments", env: "development", relativeUrls: true}))
-      .pipe(px2rem({
-        width_design: 1920,	// 设计稿宽度。默认值640
-        pieces: 24,	// 将整屏切份（1920/80=24）。默认为10，相当于10rem = width_design(设计稿宽度)
-        valid_num: 8,	// 生成rem后的小数位数。默认值4
-        ignore_px: [],	// 让部分px不在转换成rem。默认为空数组
-        ignore_selector: []	// 让部分选择器不在转换为rem。默认为空数组
-      }))
       .pipe(dest(paths.dist.css))
       .on('end', function () {
         cb ? cb() : browserSync.reload();
