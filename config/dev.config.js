@@ -1,4 +1,4 @@
-const { src, dest, series, parallel, watch } = require('gulp');
+const { src, dest, series, parallel, watch, tree } = require('gulp');
 const less = require('gulp-less');
 const px2rem = require('gulp-px2rem-plugin');
 const del = require('del');
@@ -10,8 +10,8 @@ const paths = require('./dir-vars');
 function dev () {
   // 编译html
   function compileHtml (cb) {
-    src(paths.devSrc.main, {base: './src'})
-      .pipe(dest(paths.dist.main))
+    src(paths.src.html, {base: './src'})
+      .pipe(dest(paths.dist.html))
       .on('end', function () {
         cb ? cb() : browserSync.reload();
       });
@@ -19,7 +19,7 @@ function dev () {
 
   // 编译less
   function compileLess (cb) {
-    src(paths.devSrc.less)
+    src(paths.src.less)
       .pipe(less({dumpLineNumbers: "comments", env: "development", relativeUrls: true}))
       .pipe(px2rem({
         width_design: 1920,	// 设计稿宽度。默认值640
@@ -35,20 +35,22 @@ function dev () {
   }
 
   function clean (cb) {
-    src('./dist')
-      .pipe(del('./dist', {force: true})).then(() => {
-        console.log('dist is deleted')
-      })
+    del('./dist', {force: true}).then(() => {
+      console.log('dist is deleted')
+      cb();
+    })
   }
 
   // 文件监控
   function watchFn (cb) {
     let watcher = watch([
-      paths.devSrc.main,
-      paths.devSrc.allLess,
-      paths.devSrc.script,
-      paths.devSrc.assets
-    ]);
+      paths.src.html,
+      paths.src.allLess,
+      paths.src.js,
+      paths.src.lib,
+      paths.src.images,
+      paths.src.icons,
+    ], {usePolling: true});
 
     watcher.on('change', (file) => {
       watchHandler('change', file);
@@ -92,10 +94,12 @@ function dev () {
         } else {
           if (file.indexOf('lib')) {
             copyHandler('lib', file)
-          } else if (file.indexOf('js')) {
+          } else if (file.indexOf('logic')) {
             copyHandler('js', file)
+          } else if (file.indexOf('images')) {
+            copyHandler('images', file)
           } else {
-            copyHandler('assets', file)
+            copyHandler('icons', file)
           }
         }
         break;
@@ -104,13 +108,12 @@ function dev () {
 
   // copy 静态资源 和 js
   function copyHandler (type, file, cb) {
-    console.log(type)
     if (typeof file === 'function') {
       cb = file;
-      file = paths.devSrc[type];
+      file = paths.src[type];
     }
     src(file, {base: './src'})
-      .pipe(dest(paths.dist.main))
+      .pipe(dest('./dist'))
       .on('end', function () {
           console.log(`copy ${type} success.`);
           cb ? cb() : browserSync.reload();
@@ -128,7 +131,7 @@ function dev () {
   function devServer (cb) {
     browserSync.init({
       server: {
-        baseDir: paths.dist.main,
+        baseDir: paths.dist.html,
         directory: true
       },
       startPath: 'index.html',
@@ -161,10 +164,16 @@ function dev () {
     clean,
     parallel(
       function (cb) {
-        copyHandler('assets', cb)
+        copyHandler('js', cb)
       },
       function (cb) {
-        copyHandler('script', cb)
+        copyHandler('lib', cb)
+      },
+      function (cb) {
+        copyHandler('images', cb)
+      },
+      function (cb) {
+        copyHandler('icons', cb)
       },
       compileHtml,
       compileLess
